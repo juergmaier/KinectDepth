@@ -1,4 +1,6 @@
 import heapq
+import time
+import pygame
 
 class Cell(object):
     def __init__(self, x, y, reachable):
@@ -155,3 +157,113 @@ class AStar(object):
                         heapq.heappush(self.opened, (adj_cell.f, adj_cell))
 
 
+
+# bresenham as of http://eugen.dedu.free.fr/projects/bresenham/
+def getVisionLine (x1, y1, x2, y2):
+
+    dx = x2 - x1; 
+    dy = y2 - y1; 
+
+    xsign = 1 if dx > 0 else -1
+    ysign = 1 if dy > 0 else -1
+
+    dx = abs(dx)
+    dy = abs(dy)
+
+    if dx > dy:
+        xx, xy, yx, yy = xsign, 0, 0, ysign
+    else:
+        dx, dy = dy, dx
+        xx, xy, yx, yy = 0, ysign, xsign, 0
+
+    D = 2*dy - dx
+    y = 0
+
+    for x in range(dx + 1):
+        yield x1 + x*xx + y*yx, y1 + x*xy + y*yy
+        if D > 0:
+            y += 1
+            D -= dx
+        D += dy
+
+
+
+def smoothPath(scaled, path):
+    start = 0
+    next = 1
+    end = len(path) -1
+    while next < len(path)-1:
+
+        blocked = False
+        for cell in getVisionLine(path[start][0], path[start][1], path[next][0], path[next][1]):
+            if scaled.get_at(cell)[0] > 0:    # cell blocked
+                blocked = True
+
+        # if we hit a blocked cell add a waypoint to the list
+        if blocked:
+            #path.insert(next, path[next])
+            start = next
+            next = start+1
+
+        # if direct path is free remove the waypoint
+        else:
+            del path[next]
+            
+
+
+
+def findPath(screen, source, target, scaler):
+    '''
+    @screen is a 640*480 image
+    @source is the cam location
+    @target is the point we want to go
+    @scaler is the reduction factor for the path search grid
+    '''
+    start_time = time.time()
+    finderGrid =  (screen.get_width()/scaler, screen.get_height()/scaler)
+    scaled = pygame.transform.scale(screen,finderGrid)
+    scaledSource = [x/8 for x in source]
+    scaledTarget = [x/8 for x in target]
+    a = AStar()
+    a.init_grid(scaled.get_width(), scaled.get_height(), scaled, scaledSource, scaledTarget)
+    path = a.solve()
+
+    print("path found in %s seconds " % (time.time() - start_time))
+
+    if path==None:
+        print "no path found "
+        return
+    else:
+        for i in range(0, len(path) - 1):
+            point = [x * 8 for x in path[i]]
+            map.circle(BRIGHTGREEN, point, 4)
+            map.save("astarPath.png")
+
+        smoothPath(scaled, path)
+
+        for i in range(0, len(path) - 1):
+            cellFrom = [x * 8 for x in path[i]]
+            cellTo = [x * 8 for x in path[i+1]]
+            map.line(BRIGHTGREEN, cellFrom, cellTo, 1)
+            map.save("directPath.png")
+
+    # angle of first path segment of a  straight forward looking robot
+    # tan(xdiff/ydiff)
+    dx = path[0][0] - path[1][0]
+    dy = path[0][1] - path[1][1]
+    angle = np.degrees(np.tan(float(dx) / -dy))
+    dist = np.sqrt(pow(dx, 2) + pow(dy, 2))
+    dir = MOVEMENT.VORWAERTS         # at the moment we rotate and drive forward only
+
+    print "action rotate angle: ", dir, " speed: 100"
+    arduino.sendRotateCommand(dir)
+
+    if dist > 500:
+        speed = 255
+    elif dist > 200:
+        speed = 180
+    else: 
+        speed = 150
+
+    print "action move forward, speed: ", speed
+    #arduino.sendMoveCommand(0, speed)
