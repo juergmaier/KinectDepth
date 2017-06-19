@@ -1,6 +1,11 @@
+import KinectDepth
 import heapq
 import time
 import pygame
+import map 
+import numpy as np
+import arduino
+
 
 class Cell(object):
     def __init__(self, x, y, reachable):
@@ -234,17 +239,26 @@ def findPath(screen, source, target, scaler):
         print "no path found "
         return
     else:
-        for i in range(0, len(path) - 1):
-            point = [x * 8 for x in path[i]]
-            map.circle(BRIGHTGREEN, point, 4)
+        if KinectDepth.showMap:
+            for i in range(0, len(path) - 1):
+                point = [x * 8 for x in path[i]]
+                map.circle(KinectDepth.BRIGHTGREEN, point, 4)
+
+            print "map path"
+            map.update()
             map.save("astarPath.png")
 
         smoothPath(scaled, path)
 
-        for i in range(0, len(path) - 1):
-            cellFrom = [x * 8 for x in path[i]]
-            cellTo = [x * 8 for x in path[i+1]]
-            map.line(BRIGHTGREEN, cellFrom, cellTo, 1)
+        if KinectDepth.showMap:
+
+            for i in range(0, len(path) - 1):
+                cellFrom = [x * 8 for x in path[i]]
+                cellTo = [x * 8 for x in path[i+1]]
+                map.line(KinectDepth.BRIGHTGREEN, cellFrom, cellTo, 1)
+        
+            print "map smoothed path"
+            map.update()
             map.save("directPath.png")
 
     # angle of first path segment of a  straight forward looking robot
@@ -253,10 +267,16 @@ def findPath(screen, source, target, scaler):
     dy = path[0][1] - path[1][1]
     angle = np.degrees(np.tan(float(dx) / -dy))
     dist = np.sqrt(pow(dx, 2) + pow(dy, 2))
-    dir = MOVEMENT.VORWAERTS         # at the moment we rotate and drive forward only
 
-    print "action rotate angle: ", dir, " speed: 100"
-    arduino.sendRotateCommand(dir)
+    print "action rotate angle: ", angle, " speed: 100"
+    if KinectDepth.arduinoStatus == 1:
+        arduino.sendRotateCommand(angle)
+
+    # wait for rotation end
+    if KinectDepth.arduinoStatus == 1:
+        while True:
+            if KinectDepth.orientation > angle:
+                time.sleep(0.2)
 
     if dist > 500:
         speed = 255
@@ -265,5 +285,7 @@ def findPath(screen, source, target, scaler):
     else: 
         speed = 150
 
+    dir = KinectDepth.MOVEMENT.VORWAERTS         # at the moment we rotate and drive forward only
     print "action move forward, speed: ", speed
-    #arduino.sendMoveCommand(0, speed)
+    if KinectDepth.arduinoStatus == 1:
+        arduino.sendMoveCommand(dir, speed)

@@ -1,4 +1,5 @@
 import thread
+from thread import start_new_thread
 from numpy import random
 import numpy as np
 from pykinect import nui
@@ -9,18 +10,6 @@ import rpyc
 from rpyc.utils.server import ThreadedServer
 import pygame
 import map
-
-class MOVEMENT:
-    VORWAERTS = 0
-    VOR_DIAG_RECHTS = 1 
-    VOR_DIAG_LINKS = 2
-    LINKS = 3 
-    RECHTS = 4
-    RUECKWAERTS = 5 
-    RUECK_DIAG_RECHTS = 6 
-    RUECK_DIAG_LINKS = 7
-    DREHEN_LINKS = 8 
-    DREHEN_RECHTS = 9
 
 
 
@@ -44,16 +33,19 @@ maxDist = 300   # after 3 m the floor starts to show
 TIMEOUT=500
 orientation = 0.0
 arduinoStatus = 0
+showMap = False
 
-##################################################
-# solves issue with blocking threads in pygame
-# needs to be called repeateadly from main thread
-def continue_pygame_loop():
-    pygame.mainloop(0.1)
-    yield
-##################################################   
-
-
+class MOVEMENT:
+    VORWAERTS = 0
+    VOR_DIAG_RECHTS = 1 
+    VOR_DIAG_LINKS = 2
+    LINKS = 3 
+    RECHTS = 4
+    RUECKWAERTS = 5 
+    RUECK_DIAG_RECHTS = 6 
+    RUECK_DIAG_LINKS = 7
+    DREHEN_LINKS = 8 
+    DREHEN_RECHTS = 9
 
 class MsgReaderService(rpyc.Service):
 
@@ -104,32 +96,47 @@ def analyze(target):
 
     global screen
 
-    obstacleList = []
+    start = time.time()
+    obstacleList = []       # points of obstacles
     depth = np.load("depth.npy")
-    for row in range(screen.get_height()):
-        for col in range(screen.get_width()):
-            dist = depth[col, row] / 10
-            if  dist > 80 and dist < 300:
-                screen.set_at((col, dist), WHITE)
-                obstacleList.append((col, dist))
 
-    map.update()
-    map.save("topViewFiltered.png")
+    # use the depth information of the pixels to create a top view of obstacles
+    for row in range(480):
+        for col in range(640):
+            #dist = int(depth[col, row] / 10)     # depth is in mm
+            if  int(depth[col, row] / 10) > 80 and int(depth[col, row] / 10) < 280:   # use only depth information in the range of 80, 250
+                if showMap:
+                    screen.set_at((col, int(depth[col, row] / 10)), WHITE)
+                obstacleList.append((col, int(depth[col, row] / 10)))
+    print "obstacle points: ", time.time()-start, "seconds"
+
+    if showMap:
+        print "map topViewFiltered"
+        map.update()
+        map.save("topViewFiltered.png")
 
     # extend path blocking pixels to obstacles based on cart size
+    start = time.time()
     for o in obstacleList:
         map.circle(RED, o, 40)
-    
-    # show source
-    map.circle(RED, source, 10)
+    print "enlarged points: ", time.time()-start, "seconds"
 
-    # show target (fixed target at the moment)
-    map.circle(BLUE, target, 10)
-    map.save("topViewEnlarged.png")
+    if showMap:    
+        # show source
+        map.circle(RED, source, 10)
 
+        # show target (fixed target at the moment)
+        map.circle(BLUE, target, 10)
+        print "map topViewEnlarged"
+        map.update()
+        map.save("topViewEnlarged.png")
+
+    start = time.time()
     pathFinder.findPath(screen, source, target, 8)
+    print "pathFinder: ", time.time()-start, "seconds"
 
-    pygame.display.update()
+    if showMap:
+        map.update()
     
     print "analyze done"
 
@@ -251,6 +258,8 @@ if __name__ == '__main__':
 
     if var=='7':
 
+        # Start map viewer in its own thread
+        #start_new_thread(map.createWindow())
         map.createWindow()
 
         gui.startGui()

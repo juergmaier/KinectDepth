@@ -1,6 +1,8 @@
 import arduino
 import Tkinter as tk
+import time
 import KinectDepth
+import map
 from thread import start_new_thread
 
 gui = None
@@ -53,14 +55,14 @@ class manualControl:
 
         self.sbX = tk.Spinbox(mainWindow, from_=0, to=400, text = "300")
         self.sbX.grid(row = 80, column = 1)
-        self.sbX.insert(0, 32)
+        self.sbX.insert(0, 30)
 
         self.lblYValue = tk.Label(mainWindow, text="Y: ")
         self.lblYValue.grid(row = 82, column = 0, sticky=tk.E)
 
         self.sbY = tk.Spinbox(mainWindow, from_=0, to=400)
         self.sbY.grid(row = 82, column = 1)
-        self.sbY.insert(0, 30)
+        self.sbY.insert(0, 34)
 
         self.btnNav = tk.Button(mainWindow, text="navigate", state="normal", command = self.navigateTo)
         self.btnNav.grid(row = 84, column = 1)
@@ -97,10 +99,12 @@ class manualControl:
             self.w.after(10, self.heartBeat)
         else:
             self.w.after(400, self.checkStatus)
-        
-    def navigateTo(self):
-        KinectDepth.analyze((int(self.sbX.get()),int(self.sbY.get())))
+            #map.continue_pygame_loop()        
 
+    def navigateTo(self):
+        start = time.time()
+        KinectDepth.analyze((int(self.sbX.get()),int(self.sbY.get())))
+        print "analyzed in: ", time.time()-start, " seconds."
     
     def heartBeat(self):
 
@@ -115,6 +119,7 @@ class manualControl:
         self.lblRotationCurrentValue.configure(text=str(KinectDepth.orientation))
         self.w.update_idletasks()
         self.w.after(300, self.heartBeat)
+        #map.continue_pygame_loop()
 
     def stopCart(self):
 
@@ -148,13 +153,12 @@ class manualControl:
 
 def startGui():
 
-#    global lblCommand, lblRotationTarget, lblRotationCurrent, lblMove, lblHeartBeat
-#    global btnArduino, btnRotate
-#    global sbRotation, ddMove
     global gui
 
     gui = tk.Tk()
-    gui.geometry('300x450+100+150')
+    gui.geometry('300x450+100+150')     # window size and position
+
     controller = manualControl(gui)
+
     gui.mainloop()
 
