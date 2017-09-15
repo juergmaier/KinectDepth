@@ -184,7 +184,7 @@ def getVisionLine (x1, y1, x2, y2):
     D = 2*dy - dx
     y = 0
 
-    for x in range(dx + 1):
+    for x in np.nditer(dx):
         yield x1 + x*xx + y*yx, y1 + x*xy + y*yy
         if D > 0:
             y += 1
@@ -231,6 +231,8 @@ def findPath(screen, source, target, scaler):
     scaledTarget = [x/8 for x in target]
     a = AStar()
     a.init_grid(scaled.get_width(), scaled.get_height(), scaled, scaledSource, scaledTarget)
+    print("scaled array initialized in %s seconds " % (time.time() - start_time))
+    start_time = time.time()
     path = a.solve()
 
     print("path found in %s seconds " % (time.time() - start_time))

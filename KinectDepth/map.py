@@ -1,5 +1,6 @@
 import os
 import pygame
+from pygame.locals import *
 import KinectDepth
 
 width = 640
@@ -29,16 +30,17 @@ def save(file):
 
 
 def createWindow():
-
+    
+   
     os.environ['SDL_VIDEO_WINDOW_POS'] = "%d,%d" % (410,180)
 
     # Initialize PyGame
-    print "create map window"
+    KinectDepth.screen = pygame.display.set_mode((DEPTH_WINSIZE))
+    KinectDepth.screen.set_alpha(None)
 
-    KinectDepth.screen = pygame.display.set_mode(DEPTH_WINSIZE)
     if KinectDepth.showMap:
         pygame.display.set_caption('Kinect Depth Map')
-        pygame.image.load("depth.png")
+        #pygame.image.load("depth.png")
         pygame.display.update()
 
     

@@ -36,27 +36,32 @@ def readMessages():
                     print "new cart orientation: " + str(KinectDepth.orientation)
 
             else:
-                print "<-A " + recv
-        pass
+                try:
+                    print "<-A " + recv
+                except:
+                    print "Unexpected error:", sys.exc_info()[0]
+                    pass
+
+        #pass
 
 def sendMoveCommand(dir, speed):
 
-    msg = '1' + str(dir).zfill(3) + str(speed).zfill(3) + '\n'
+    msg = '1' + str(dir) + str(speed).zfill(3) + '\n'
     print("Send move " + msg)
     ser.write(msg) 
 
 
-def sendRotateCommand(angle):
+def sendRotateCommand(relAngle):
 
 #    global ser
 
-    if angle > 0:
-        msg = '2' + str(angle).zfill(3) + '\n'
+    if relAngle > 0:   # rotate anticlock
+        msg = '2' + str(relAngle).zfill(3) + '\n'
         print("Send rotate " + msg)
         ser.write(msg) 
 
-    if angle < 0:
-        msg = '3' + str(-angle).zfill(3) + '\n'
+    if relAngle < 0:
+        msg = '3' + str(-relAngle).zfill(3) + '\n'
         print("Send rotate " + msg)
         ser.write(msg) 
 

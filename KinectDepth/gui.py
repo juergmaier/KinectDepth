@@ -14,7 +14,7 @@ class manualControl:
         self.btnArduino = tk.Button(mainWindow, text="Arduino", command=self.startArduino)
         self.btnArduino.grid(row=0, columnspan=2)
            
-        self.lblInfo = tk.Label(mainWindow, text="wait for user action", fg ="white", bg="red")
+        self.lblInfo = tk.Label(mainWindow, text="wait for Arduino button pressed", fg ="white", bg="red")
         self.lblInfo.grid(row=1, columnspan=2)
     
         self.lblCommand = tk.Label(mainWindow, text="command: ")
@@ -41,10 +41,13 @@ class manualControl:
         self.btnRotate = tk.Button(mainWindow, text="Rotate", state="disabled", command=self.rotateCart)
         self.btnRotate.grid(row = 50, column = 1)
         
+        self.choices = ["stop","vor","vor_diag_rechts","vor_diag_links","links","rechts","rueckwaerts","rueck_diag_rechts","rueck_diag_links"]
+        defaultDirection = "vor"
+        self.direction = self.choices.index(defaultDirection)
+
         move = tk.StringVar(gui)
-        choices = {"vor","vor_diag_rechts","vor_diag_links","links","rechts","rueckwaerts","rueck_diag_rechts","rueck_diag_links"}
-        move.set("vor")
-        self.ddMove = tk.OptionMenu(mainWindow, move, *choices)
+        move.set(defaultDirection)
+        self.ddMove = tk.OptionMenu(mainWindow, move, *self.choices, command=self.selectedDirection)
         self.ddMove.grid(row = 60, column = 0, sticky=tk.E)
 
         self.btnMove = tk.Button(mainWindow, text="Move", state="disabled", command = self.moveCart)
@@ -73,11 +76,15 @@ class manualControl:
         self.btnStop = tk.Button(mainWindow, text="STOP CART", state="normal", command = self.stopCart, bg = "red", fg = "white")
         self.btnStop.grid(row = 200, column = 0, columnspan=2, pady=30)
 
-        
+    def selectedDirection(self, value):
+        self.direction = self.choices.index(value)
+        #println("selected direction: " + value + " index: " + self.direction)
+
+
     def startArduino(self):
 
         arduino.initSerial("COM5")
-        self.lblInfo.configure(text = "arduino connected", bg="white smoke", fg="black")
+        self.lblInfo.configure(text = "arduino connected, waiting for cart ready message", bg="white smoke", fg="orange")
         self.btnArduino.configure(state = "disabled")
 
         # Messages sent by the Arduino should always get processed
@@ -91,7 +98,7 @@ class manualControl:
     def checkStatus(self):
     
         if KinectDepth.arduinoStatus == 1:
-            self.lblInfo.configure(text = "arduino ready", bg="lawn green", fg="black")
+            self.lblInfo.configure(text = "cart ready", bg="lawn green", fg="black")
             self.btnRotate.configure(state="normal")
             self.btnMove.configure(state="normal")
             self.btnNav.configure(state="normal")
@@ -118,7 +125,7 @@ class manualControl:
         arduino.getCartOrientation()
         self.lblRotationCurrentValue.configure(text=str(KinectDepth.orientation))
         self.w.update_idletasks()
-        self.w.after(300, self.heartBeat)
+        self.w.after(300, self.heartBeat)   # heart beat loop
         #map.continue_pygame_loop()
 
     def stopCart(self):
@@ -128,22 +135,20 @@ class manualControl:
         self.w.update_idletasks()
 
     
-    def moveCart(self, speed):
+    def moveCart(self, speed = 50):
 
-        direction = ddMove.get()
-        arduino.sendMoveCommand(direction)
+        arduino.sendMoveCommand(self.direction, speed)
         self.lblCommandValue.configure(text="Move")
-        self.lblMove.configure(text=str(speed))
+        #self.lblMove.configure(text=str(speed))
         self.w.update_idletasks()
 
 
     def rotateCart(self):
 
-        angle = self.sbRotation.get()
+        angle = int(self.sbRotation.get())
 
         self.lblCommandValue.configure(text="Rotate")
-        self.lblRotationTargetValue.configure(text=str(angle))
-
+        self.lblRotationTargetValue.configure(text=str(KinectDepth.orientation + angle))
         arduino.sendRotateCommand(angle)
         self.w.update_idletasks()
 
@@ -155,10 +160,11 @@ def startGui():
 
     global gui
 
+    start=time.time()
     gui = tk.Tk()
     gui.geometry('300x450+100+150')     # window size and position
 
     controller = manualControl(gui)
-
+    print "gui initialized in: ", time.time()-start, " seconds"
     gui.mainloop()
 

@@ -1,6 +1,4 @@
-import thread
-from thread import start_new_thread
-from numpy import random
+import threading
 import numpy as np
 from pykinect import nui
 import pathFinder
@@ -13,7 +11,7 @@ import map
 
 
 
-screen_lock = thread.allocate()
+screen_lock = None
 screen = None
 
 WHITE = (255,255,255)
@@ -28,7 +26,7 @@ source = (320,0)
 #sourceCell = [x / 2 for x in source]
 target = (300,350)
 #targetCell = [x / 2 for x in target]
-maxDist = 300   # after 3 m the floor starts to show
+floorDist = 280   # after 2.8 m the floor starts to show
 #lastMessage = None
 TIMEOUT=500
 orientation = 0.0
@@ -96,30 +94,37 @@ def analyze(target):
 
     global screen
 
-    start = time.time()
     obstacleList = []       # points of obstacles
     depth = np.load("depth.npy")
+    depth = depth.astype(float)
 
-    # use the depth information of the pixels to create a top view of obstacles
-    for row in range(480):
-        for col in range(640):
-            #dist = int(depth[col, row] / 10)     # depth is in mm
-            if  int(depth[col, row] / 10) > 80 and int(depth[col, row] / 10) < 280:   # use only depth information in the range of 80, 250
-                if showMap:
-                    screen.set_at((col, int(depth[col, row] / 10)), WHITE)
-                obstacleList.append((col, int(depth[col, row] / 10)))
-    print "obstacle points: ", time.time()-start, "seconds"
+    start = time.time()
+    # ignore objects closer 80 cm (not reliable)
+    depth[depth < 800.0] = np.NaN
+    depth[depth > 2800.0] = np.NaN
+    # improved version could ignore the floor. 
+    # cam is at 1150mm height and has a downview angle of 14 degrees
+    # for depth values > 2800 ignore rows > 480 - (depth - 2800) * sin(14)/sin(76) * 0.2
+    # ignore this for the moment as calculations on single values are too slow
+
+    # for each column the closest point
+    obstacles  = np.nanmin(depth, axis=1)
+    for index, i in enumerate(obstacles):
+        if not np.isnan(i):
+            screen.set_at((index, int(i)/10), WHITE)
 
     if showMap:
-        print "map topViewFiltered"
+        print("map topViewFiltered")
         map.update()
         map.save("topViewFiltered.png")
+    print("obstacle points: ", time.time()-start, "seconds")
 
     # extend path blocking pixels to obstacles based on cart size
     start = time.time()
-    for o in obstacleList:
-        map.circle(RED, o, 40)
-    print "enlarged points: ", time.time()-start, "seconds"
+    for index, i in enumerate(obstacles):
+        if not np.isnan(i):
+            map.circle(RED, (index, int(i)/10), 40)
+    print("enlarged points: ", time.time()-start, "seconds")
 
     if showMap:    
         # show source
@@ -166,7 +171,7 @@ def getDepthImage():
     # Initialize PyGame
     global screen
     screen = pygame.display.set_mode(DEPTH_WINSIZE, 0, 8)
-    screen.set_palette(tuple([(i, i, i) for i in range(256)]))
+    screen.set_palette(tuple([(i, i, i) for i in np.nditer(255)]))
     pygame.display.set_caption('PyKinect Depth Map Example')
      
     with nui.Runtime() as kinect:
@@ -241,7 +246,7 @@ if __name__ == '__main__':
         arduino.initSerial("COM5")
         print("send rotate command")
         arduino.sendRotateCommand(10)
-        for i in range(20):
+        for i in np.nditer(20):
             arduino.readMessages()
             arduino.sendHeartbeat()
             time.sleep(0.3)
@@ -258,8 +263,8 @@ if __name__ == '__main__':
 
     if var=='7':
 
-        # Start map viewer in its own thread
-        #start_new_thread(map.createWindow())
+        start = time.time()
         map.createWindow()
+        print "window created in: ", time.time()-start, " seconds."
 
         gui.startGui()
